@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/HuskerMinion/techo5/echod/internal/lib/netguard"
 )
 
 // reNumeric is a host made of numbers alone, decimal or hex, between dots.
@@ -96,4 +98,18 @@ func Redacted(u *url.URL) string {
 	}
 	c.Fragment = ""
 	return c.String()
+}
+
+// ownHost is whether host is one of the device's own addresses, which the kernel would carry over
+// loopback: a video is never fetched from the device itself. The addresses are netguard's, which on a
+// panel are the ones the app reports; its dialer refuses the same addresses again as it connects.
+func ownHost(host string) bool {
+	if strings.Contains(host, "%") {
+		return true // a zoned address is one of the device's own links (CheckURL refuses it first)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return netguard.OwnIP(ip)
 }

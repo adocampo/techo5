@@ -1,4 +1,4 @@
-//go:build !spot && !dot
+//go:build !spot && !dot && !panel
 
 package video
 

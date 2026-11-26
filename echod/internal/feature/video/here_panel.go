@@ -2,7 +2,8 @@
 
 package video
 
-// Here is whether this device plays videos: a panel does not. The decoder is the techo5-ffmpeg the
-// Echos' images carry, and the app has none, so the switches and the play_video actions would do
-// nothing there. The package builds as the Show's, for the screen code that asks it what is playing.
-const Here = false
+// Here is whether this device plays videos: a panel does. The decoder is Android's own — the app
+// plays what echod asks for over the control line (panel.go), the way the clock and the apps run
+// there — so no techo5-ffmpeg is needed. The switches, the play_video actions and the sensors are
+// the Show's; the playing is the app's.
+const Here = true

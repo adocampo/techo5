@@ -43,10 +43,6 @@ func TestVideoIsOfferedOnlyWhileDLNAVideoIsOn(t *testing.T) {
 			t.Errorf("videos on: no %s in %s", want, p)
 		}
 	}
-	t.Setenv("TECHO5_FFMPEG", filepath.Join(t.TempDir(), "none"))
-	if p := protocols(); strings.Contains(p, "video/") {
-		t.Errorf("no decoder: %s", p)
-	}
 }
 
 // A video sent while DLNA video is off is refused with UPnP's code for it; on, it is taken as a video,

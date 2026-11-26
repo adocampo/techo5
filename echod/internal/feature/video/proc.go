@@ -1,4 +1,4 @@
-//go:build !dot
+//go:build !dot && !panel
 
 package video
 
@@ -347,11 +347,4 @@ func (t *tail) last() string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.line
-}
-
-func clip(s string, n int) string {
-	if len(s) > n {
-		return s[:n] + "…"
-	}
-	return s
 }

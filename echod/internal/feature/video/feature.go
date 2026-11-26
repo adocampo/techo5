@@ -1,13 +1,10 @@
-//go:build !dot
+//go:build !dot && !panel
 
 package video
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
-	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -17,7 +14,6 @@ import (
 	"github.com/HuskerMinion/techo5/echod/internal/config"
 	"github.com/HuskerMinion/techo5/echod/internal/feature/media"
 	"github.com/HuskerMinion/techo5/echod/internal/lib/hook"
-	"github.com/HuskerMinion/techo5/echod/internal/lib/netguard"
 	"github.com/HuskerMinion/techo5/echod/internal/lib/safe"
 )
 
@@ -517,44 +513,6 @@ func (f *Feature) Done(fr *Frame) {
 		return
 	}
 	fr.owner.done(fr)
-}
-
-func (f *Feature) Actions() []*esphome.Action {
-	return []*esphome.Action{
-		{
-			// Plays a video full screen: an http or https address (MP4, MKV, MPEG-TS or HLS, H.264 at
-			// 720p or less plays best), with an optional title for the screen and the sensor.
-			Name: "play_video",
-			Args: []esphome.Arg{{Name: "url", Type: esphome.ArgString}, {Name: "title", Type: esphome.ArgString}},
-			Run: func(c esphome.Call) (any, error) {
-				_, err := f.Play(Request{URL: c.String("url"), Title: c.String("title"), Origin: FromHomeAssistant})
-				if err != nil && !strings.HasPrefix(err.Error(), "video: ") {
-					err = fmt.Errorf("video: %w", err)
-				}
-				if err != nil {
-					f.lastErr.Set(clip(err.Error(), 250))
-				}
-				return nil, err
-			},
-		},
-		{Name: "stop_video", Run: func(esphome.Call) (any, error) { f.Stop(); return nil, nil }},
-		{Name: "pause_video", Run: func(esphome.Call) (any, error) { f.Pause(); return nil, nil }},
-		{Name: "resume_video", Run: func(esphome.Call) (any, error) { f.Resume(); return nil, nil }},
-	}
-}
-
-// ownHost is whether host is one of the device's own addresses, which the kernel would carry over
-// loopback: a video is never fetched from the device itself. The addresses are netguard's, which on a
-// panel are the ones the app reports; its dialer refuses the same addresses again as it connects.
-func ownHost(host string) bool {
-	if strings.Contains(host, "%") {
-		return true // a zoned address is one of the device's own links (CheckURL refuses it first)
-	}
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return false
-	}
-	return netguard.OwnIP(ip)
 }
 
 // The package's own calls, which the DLNA renderer and the setup page use on every device.
