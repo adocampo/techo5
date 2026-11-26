@@ -412,9 +412,13 @@ func numberWord(n int) string {
 	return "twenty-" + numberWords[n-20]
 }
 
-// clockWords is the time as it is said: what comes before the hour ("seven past", "quarter to", empty
-// on the hour), the hour ("two", "two o'clock", "noon", "midnight"), and the part of the day.
-func clockWords(t time.Time) (lead, hour, period string) {
+// clockWords is the time as it is said: the line that starts it ("it's", "son las", empty for noon
+// and midnight), what comes before the hour ("seven past", "quarter to", empty on the hour), the
+// hour ("two", "two o'clock", "noon", "midnight"), and the part of the day.
+func clockWords(t time.Time) (intro, lead, hour, period string) {
+	if screenLang() == "es" {
+		return clockWordsEs(t)
+	}
 	h, m := t.Hour(), t.Minute()
 	switch {
 	case m == 0:
@@ -445,9 +449,9 @@ func clockWords(t time.Time) (lead, hour, period string) {
 	}
 	switch {
 	case said == 0 && m == 0:
-		return "", "midnight", ""
+		return "it's", "", "midnight", ""
 	case said == 12 && m == 0:
-		return "", "noon", ""
+		return "it's", "", "noon", ""
 	}
 	hour = numberWords[(said+11)%12+1]
 	if m == 0 {
@@ -463,5 +467,120 @@ func clockWords(t time.Time) (lead, hour, period string) {
 	default:
 		period = "at night"
 	}
-	return lead, hour, period
+	return "it's", lead, hour, period
 }
+
+// The Spanish clock keeps the English layout - an intro line, a line of minutes, the hour picked
+// out in colour with its part of the day beside it - but says the hour first, because that is how
+// Spanish says it: "son las / dos / de la tarde / y media". Its parts of the day follow how Spanish
+// counts them, with the sun's help where it is known: the morning begins when the sun rises, and the
+// afternoon ends when it sets - but never before eight, because "las ocho" is "de la noche" whatever
+// the season, and in summer a late sunset lets the afternoon run past eight. Mediodía and medianoche
+// are the exact hours only: ten past twelve is "las doce y diez", never "mediodía y diez", and the
+// twelve hours go without a part of the day.
+
+// esMinutes are the minutes the Spanish clock counts with y, to fifty-nine: "veinticinco",
+// "cincuenta y tres". The round ones near the next hour are said with menos instead - "menos veinte",
+// "menos cuarto", "menos diez", "menos cinco" - so their entries here go unused.
+var esMinutes = []string{"", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez",
+	"once", "doce", "trece", "catorce", "quince", "dieciséis", "diecisiete", "dieciocho", "diecinueve", "veinte",
+	"veintiuno", "veintidós", "veintitrés", "veinticuatro", "veinticinco", "veintiséis", "veintisiete",
+	"veintiocho", "veintinueve", "treinta", "treinta y uno", "treinta y dos", "treinta y tres", "treinta y cuatro",
+	"treinta y cinco", "treinta y seis", "treinta y siete", "treinta y ocho", "treinta y nueve", "cuarenta",
+	"cuarenta y uno", "cuarenta y dos", "cuarenta y tres", "cuarenta y cuatro", "cuarenta y cinco",
+	"cuarenta y seis", "cuarenta y siete", "cuarenta y ocho", "cuarenta y nueve", "cincuenta", "cincuenta y uno",
+	"cincuenta y dos", "cincuenta y tres", "cincuenta y cuatro", "cincuenta y cinco", "cincuenta y seis",
+	"cincuenta y siete", "cincuenta y ocho", "cincuenta y nueve"}
+
+// esHours are the hours as Spanish says them, bare: the article rides on the intro line
+// ("son las / dos"), and the clock is feminine - "es la / una".
+var esHours = []string{"", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez",
+	"once", "doce"}
+
+// clockWordsEs is the time said in Spanish: the intro ("son las", "es la", nothing for mediodía and
+// medianoche), the minutes ("y media", "menos cuarto", "y treinta y siete", empty on the hour), the
+// hour ("dos", "una en punto") and the part of the day ("de la tarde"). It is exact to the minute,
+// like the English clock, but says the minutes with menos only where Spanish does - the round ones
+// near the next hour - and with y everywhere else.
+func clockWordsEs(t time.Time) (intro, lead, hour, period string) {
+	h, m := t.Hour(), t.Minute()
+	switch {
+	case h == 0 && m == 0:
+		return "", "", "medianoche", ""
+	case h == 12 && m == 0:
+		return "", "", "mediodía", ""
+	}
+	// The minutes near the next hour are said with menos only when they are round: menos veinte,
+	// menos cuarto, menos diez, menos cinco. The rest keep the hour they are in and say y - "las
+	// siete y treinta y siete", never "las ocho menos veintitrés", and "las ocho y cincuenta y
+	// nueve", never "las nueve menos uno".
+	menos := m == 40 || m == 45 || m == 50 || m == 55
+	said := h % 12
+	if said == 0 {
+		said = 12
+	}
+	if menos {
+		said = said%12 + 1 // "las ocho menos cuarto" at a quarter to eight
+	}
+	intro = "son las"
+	if said == 1 {
+		intro = "es la"
+	}
+	hour = esHours[said]
+	switch {
+	case m == 0:
+		hour += " en punto"
+	case m == 15:
+		lead = "y cuarto"
+	case m == 30:
+		lead = "y media"
+	case m == 40:
+		lead = "menos veinte"
+	case m == 45:
+		lead = "menos cuarto"
+	case m == 50:
+		lead = "menos diez"
+	case m == 55:
+		lead = "menos cinco"
+	default:
+		lead = "y " + esMinutes[m]
+	}
+	midnight := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	rise, set, sunOK := home.Get().SunTimes(t)
+	switch {
+	case h == 12:
+		// Between twelve and one the hour stands on its own - "las doce y cuarto" - except when it is
+		// said as one ("la una menos veinte"), which is the afternoon's already.
+		if menos {
+			period = "de la tarde"
+		}
+	case h < 12:
+		// The morning starts when the sun rises; with no place set, at six. Before it, the madrugada.
+		start := midnight.Add(6 * time.Hour)
+		if sunOK {
+			start = rise
+		}
+		if t.Before(start) {
+			period = "de la madrugada"
+		} else {
+			period = "de la mañana"
+		}
+	default:
+		// The afternoon ends when the sun sets, but never before eight: eight o'clock is "de la noche"
+		// in winter, and in summer the late sunset keeps it "de la tarde" a while longer.
+		night := midnight.Add(20 * time.Hour)
+		if sunOK && set.After(night) {
+			night = set
+		}
+		if t.Before(night) {
+			period = "de la tarde"
+		} else {
+			period = "de la noche"
+		}
+	}
+	return intro, lead, hour, period
+}
+
+// wordsHourFirst is whether the language says the hour before its minutes: Spanish puts "dos" above
+// "y media", English puts "twenty past" above "two".
+func wordsHourFirst() bool { return screenLang() == "es" }

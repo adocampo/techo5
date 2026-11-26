@@ -312,10 +312,12 @@ func (r *renderer) dial(now time.Time, cx, cy, rad float64) {
 	r.over.note(image.Rect(int(cx-rad), int(cy-rad), int(cx+rad), int(cy+rad)))
 }
 
-// wordsStyle says the time: "it's seven past two in the afternoon". Everything shrinks together when
-// a timer or a strip at the foot leaves it less height than it was drawn for.
+// wordsStyle says the time: "it's seven past two in the afternoon", or in Spanish "son las dos y
+// media de la tarde", the hour above its minutes because that is the order Spanish says them in.
+// Everything shrinks together when a timer or a strip at the foot leaves it less height than it was
+// drawn for.
 func (r *renderer) wordsStyle(s scene, box image.Rectangle) {
-	lead, hour, period := clockWords(s.now)
+	intro, lead, hour, period := clockWords(s.now)
 	k := min(1, float64(box.Dy())/float64(r.s(372)))
 	at := func(n int) int { return int(float64(n) * k) }
 	x := box.Min.X + r.s(24)
@@ -336,20 +338,73 @@ func (r *renderer) wordsStyle(s scene, box image.Rectangle) {
 	}
 	small := r.styleFace(false, least(44, 32))
 	y := box.Min.Y + r.s(at(44))
-	r.text(small, "it's", x, y, dim)
-	if lead != "" {
-		f := fit(true, at(104), lead, room)
+	if intro != "" {
+		r.text(small, intro, x, y, dim)
+	}
+	// The amber hour, the minutes and the part of the day, in the order the language says them and
+	// on three lines when they fit: English "twenty past / two in the afternoon"; Spanish "nueve /
+	// y tres de la noche", the minutes and the part of the day sharing a line - and with no minutes,
+	// the part of the day rides beside the hour instead. When the pair would nearly fill the line -
+	// "y cuarenta y tres de la madrugada" - it takes a line of its own. Each line shrinks to fit.
+	hourWithPeriod := period != "" && (lead == "" || !wordsHourFirst())
+	minutesWithPeriod := period != "" && lead != "" && wordsHourFirst()
+	splitPeriod := false
+	hourLine := func() {
+		w := room
+		if hourWithPeriod {
+			w = room * 3 / 5
+		}
+		hf := fit(true, at(124), hour, w)
+		y += capHeight(hf) + r.s(at(34))
+		r.text(hf, hour, x, y, dateColor(amber))
+		if hourWithPeriod {
+			pf := fit(false, least(44, 32), period, room-r.width(hf, hour)-r.s(36))
+			r.text(pf, period, x+r.width(hf, hour)+r.s(30), y, dim)
+		}
+	}
+	minutesLine := func() {
+		if lead == "" {
+			return
+		}
+		if !minutesWithPeriod {
+			f := fit(true, at(104), lead, room)
+			y += capHeight(f) + r.s(at(34))
+			r.text(f, lead, x, y, cream)
+			return
+		}
+		// The pair shares a line while it reads well shrunk to it. Only the longest of them - a long
+		// part of the day on top of long minutes, "y cuarenta y tres de la madrugada" - is better
+		// as two lines: it overflows the width and the part of the day alone takes a third of it.
+		mw := r.width(r.styleFace(true, at(104)), lead)
+		pw := r.width(r.styleFace(false, least(44, 32)), period)
+		if mw+r.s(26)+pw > room && pw > room/3 {
+			splitPeriod = true
+			f := fit(true, at(104), lead, room)
+			y += capHeight(f) + r.s(at(34))
+			r.text(f, lead, x, y, cream)
+			pf := fit(false, least(44, 32), period, room)
+			y += capHeight(pf) + r.s(at(26))
+			r.text(pf, period, x, y, dim)
+			return
+		}
+		f := fit(true, at(104), lead, room*3/5)
+		pf := fit(false, least(44, 32), period, room-r.width(f, lead)-r.s(30))
 		y += capHeight(f) + r.s(at(34))
 		r.text(f, lead, x, y, cream)
+		r.text(pf, period, x+r.width(f, lead)+r.s(26), y, dim)
 	}
-	hf := fit(true, at(124), hour, room*3/5)
-	y += capHeight(hf) + r.s(at(34))
-	r.text(hf, hour, x, y, dateColor(amber))
-	if period != "" {
-		pf := fit(false, least(44, 32), period, room-r.width(hf, hour)-r.s(36))
-		r.text(pf, period, x+r.width(hf, hour)+r.s(30), y, dim)
+	if wordsHourFirst() {
+		hourLine()
+		minutesLine()
+	} else {
+		minutesLine()
+		hourLine()
 	}
-	r.styleDateIn(r.styleFace(false, least(34, 28)), s, x, y+r.s(at(70)), -1, box.Max.X-x)
+	dateGap := 70
+	if splitPeriod {
+		dateGap = 52 // one line more below; the date comes a little closer
+	}
+	r.styleDateIn(r.styleFace(false, least(34, 28)), s, x, y+r.s(at(dateGap)), -1, box.Max.X-x)
 }
 
 // sunStyle is the day's sun: its path from sunrise to sunset across the top, the sun where it is now,

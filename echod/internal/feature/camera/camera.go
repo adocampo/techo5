@@ -32,6 +32,9 @@ import (
 )
 
 func init() {
+	if layout.Intercom() {
+		return // an intercom points no camera at the room
+	}
 	component.Register(component.Network, Get(), component.Order(70))
 	Get().register()
 }

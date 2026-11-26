@@ -38,3 +38,6 @@ const (
 )
 
 var AnimationScripts = []string{}
+
+// Intercom is false: a Spot is an Echo.
+func Intercom() bool { return false }

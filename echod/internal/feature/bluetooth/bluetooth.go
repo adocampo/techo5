@@ -28,8 +28,8 @@ import (
 )
 
 func init() {
-	if !Here {
-		return
+	if !Here || layout.Intercom() {
+		return // an intercom keeps Bluetooth off: no radio, no proxy, no permission for it
 	}
 	component.Register(component.Device, Get(), component.Order(40))
 }

@@ -25,19 +25,22 @@ func TestPanelIsNoShowBoard(t *testing.T) {
 }
 
 // The state directory is the files directory the app started echod in, whichever user of the tablet
-// it belongs to; anything that is not an app files directory falls back to the first user's.
+// it belongs to; anything that is not an app files directory falls back to the first user's. The
+// app's package is the build's own, so this reads the same for a panel and for an intercom.
 func TestStateDirIsTheAppsFilesDirectory(t *testing.T) {
 	t.Chdir(t.TempDir())
-	for home, want := range map[string]string{
-		"/data/user/10/app.techo5.panel/files":       "/data/user/10/app.techo5.panel/files",
-		"/data/user/0/app.techo5.panel/files/":       "/data/user/0/app.techo5.panel/files",
-		"/data/data/app.techo5.panel/files":          "/data/data/app.techo5.panel/files",
-		"/home/someone":                              "/data/user/0/app.techo5.panel/files",
-		"":                                           "/data/user/0/app.techo5.panel/files",
-		"data/user/10/app.techo5.panel/files":        "/data/user/0/app.techo5.panel/files",
-		"/data/user/10/app.techo5.panel/cache":       "/data/user/0/app.techo5.panel/files",
-		"/data/user/10/other.app.techo5.panel/files": "/data/user/0/app.techo5.panel/files",
-	} {
+	fallback := "/data/user/0/" + PackageName + "/files"
+	own := map[string]string{
+		"/data/user/10/" + PackageName + "/files":       "/data/user/10/" + PackageName + "/files",
+		"/data/user/0/" + PackageName + "/files/":       "/data/user/0/" + PackageName + "/files",
+		"/data/data/" + PackageName + "/files":          "/data/data/" + PackageName + "/files",
+		"/home/someone":                                 fallback,
+		"":                                              fallback,
+		"data/user/10/" + PackageName + "/files":        fallback,
+		"/data/user/10/" + PackageName + "/cache":       fallback,
+		"/data/user/10/other." + PackageName + "/files": fallback,
+	}
+	for home, want := range own {
 		t.Setenv("HOME", home)
 		if got := stateDir(); got != want {
 			t.Errorf("HOME=%q: StateDir %q, want %q", home, got, want)

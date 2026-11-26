@@ -62,6 +62,7 @@ import (
 	"github.com/HuskerMinion/techo5/echod/internal/hardware/ambient"
 	"github.com/HuskerMinion/techo5/echod/internal/hardware/screen"
 	"github.com/HuskerMinion/techo5/echod/internal/hardware/touch"
+	"github.com/HuskerMinion/techo5/echod/internal/layout"
 	"github.com/HuskerMinion/techo5/echod/internal/lib/fonts"
 	"github.com/HuskerMinion/techo5/echod/internal/lib/hass"
 	"github.com/HuskerMinion/techo5/echod/internal/lib/wifi"
@@ -69,6 +70,9 @@ import (
 )
 
 func init() {
+	if layout.Intercom() {
+		return // an intercom has no screen of echod's: the app draws everything
+	}
 	// A panel that cannot be opened is retried rather than given up on: the device answers without
 	// it, and a boot where the node was late should still end with a screen.
 	component.Register(component.Device, Get(), component.Order(60),

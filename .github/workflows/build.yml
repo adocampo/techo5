@@ -82,6 +82,9 @@ jobs:
           # The panel is built on the Show's code, so a change on main that breaks it shows here, not
           # only when a panel tag is pushed.
           go test -tags panel ./...
+          # The intercom is the panel's build with the intercom tag added: same rule, and its own
+          # components left out (layout/device_intercom.go).
+          go test -tags panel,intercom ./...
           # The deck agent's Windows and macOS code doesn't build here otherwise.
           GOOS=windows go vet ./cmd/techo5-deck
           GOOS=darwin go vet ./cmd/techo5-deck

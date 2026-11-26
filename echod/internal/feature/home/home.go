@@ -23,6 +23,7 @@ import (
 	"github.com/HuskerMinion/techo5/echod/internal/config"
 	"github.com/HuskerMinion/techo5/echod/internal/feature/hastate"
 	"github.com/HuskerMinion/techo5/echod/internal/feature/media"
+	"github.com/HuskerMinion/techo5/echod/internal/layout"
 	"github.com/HuskerMinion/techo5/echod/internal/lib/hass"
 	"github.com/HuskerMinion/techo5/echod/internal/lib/hook"
 	"github.com/HuskerMinion/techo5/echod/internal/lib/locale"
@@ -32,6 +33,9 @@ import (
 )
 
 func init() {
+	if layout.Intercom() {
+		return // the home dashboard's weather and radio are for a screen, and an intercom has none
+	}
 	component.Register(component.Device, Get(), component.Order(36))
 }
 

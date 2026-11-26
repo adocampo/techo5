@@ -83,12 +83,34 @@ func listening(object string) bool {
 }
 
 // heard is the entities to list: all of them on a device that can hear, those not about listening
-// on one that cannot.
+// on one that cannot, and on an intercom only the calls — its microphone opens inside a call and
+// for nothing else, so nothing about waking, assisting or tuning a wake word is offered.
 func heard(ents []esphome.Entity) []esphome.Entity {
+	if layout.Intercom() {
+		return dropWake(ents)
+	}
 	if layout.HasMicrophone() {
 		return ents
 	}
 	return dropListening(ents)
+}
+
+// intercomKept are the listening entities an intercom does list: the call state, its answer and
+// hangup, the ring sound, and the two switches the app mirrors — Home Assistant automates on them.
+var intercomKept = map[string]bool{
+	"phone": true, "phone_answer": true, "phone_hangup": true, "phone_peer": true,
+	"phone_ring_sound": true, "intercom_drop_in": true, "intercom_do_not_disturb": true,
+}
+
+func dropWake(ents []esphome.Entity) []esphome.Entity {
+	out := ents[:0:0]
+	for _, e := range ents {
+		if (listening(e.Object()) && !intercomKept[e.Object()]) || listeningDevice(deviceOf(e)) {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
 }
 
 func dropListening(ents []esphome.Entity) []esphome.Entity {
@@ -129,12 +151,31 @@ func deviceOf(e esphome.Entity) uint32 {
 }
 
 // heardActions is the actions to offer: all of them on a device that can hear, those not about
-// calls on one that cannot.
+// calls on one that cannot, and on an intercom the house's own intercom but no phone line.
 func heardActions(acts []*esphome.Action) []*esphome.Action {
+	if layout.Intercom() {
+		return dropPhoneLine(acts)
+	}
 	if layout.HasMicrophone() {
 		return acts
 	}
 	return dropCallActions(acts)
+}
+
+// intercomPhoneLine are the actions about the provider's phone line, which an intercom has no
+// use for: signing in, dialling numbers, contacts.
+var intercomPhoneLine = map[string]bool{
+	"phone_account": true, "phone_call": true, "phone_call_named": true, "phone_contacts": true,
+}
+
+func dropPhoneLine(acts []*esphome.Action) []*esphome.Action {
+	out := acts[:0:0]
+	for _, a := range acts {
+		if !intercomPhoneLine[a.Name] {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 func dropCallActions(acts []*esphome.Action) []*esphome.Action {
@@ -148,9 +189,9 @@ func dropCallActions(acts []*esphome.Action) []*esphome.Action {
 }
 
 // voiceFeatures is what the device says it can do as a voice assistant: nothing, where it cannot
-// hear.
+// hear — and nothing on an intercom either, which never wakes.
 func voiceFeatures() esphome.VoiceFeature {
-	if !layout.HasMicrophone() {
+	if !layout.HasMicrophone() || layout.Intercom() {
 		return 0
 	}
 	return voice.Features

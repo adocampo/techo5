@@ -1,4 +1,4 @@
-//go:build panel
+//go:build panel && !intercom
 
 package layout
 
@@ -127,6 +127,10 @@ func Show8() bool { return false }
 // Athena is false: a panel is not the 2nd gen Show 8, on either kernel, so main's athena paths
 // (the front camera, Bluetooth's athena handling) never run in the app.
 func Athena() bool { return false }
+
+// Intercom is false: a panel has a screen and does what the screen shows. The intercom build is the
+// same plumbing with the tag intercom added (device_intercom.go).
+func Intercom() bool { return false }
 
 func getprop(name, fallback string) string {
 	out, err := exec.Command("/system/bin/getprop", name).Output()

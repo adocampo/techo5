@@ -124,6 +124,9 @@ var soundCard string
 // without microphones.
 func HasMicrophone() bool { return !Skylight() }
 
+// Intercom is false: an Echo is an Echo.
+func Intercom() bool { return false }
+
 // Show8 is whether the screen is the Show 8's: an 800 by 1280 portrait panel in a 1280 by 800
 // landscape device, with a FocalTech touch controller behind it. Both generations have it.
 func Show8() bool { return Crown() || Athena() }

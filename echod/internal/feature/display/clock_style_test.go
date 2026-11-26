@@ -102,27 +102,81 @@ func TestShowClockStylesDraw(t *testing.T) {
 
 func TestClockWords(t *testing.T) {
 	for _, c := range []struct {
-		h, m               int
-		lead, hour, period string
+		h, m                      int
+		intro, lead, hour, period string
 	}{
-		{14, 7, "seven past", "two", "in the afternoon"},
-		{14, 0, "", "two o'clock", "in the afternoon"},
-		{14, 15, "quarter past", "two", "in the afternoon"},
-		{14, 30, "half past", "two", "in the afternoon"},
-		{14, 45, "quarter to", "three", "in the afternoon"},
-		{14, 37, "twenty-three to", "three", "in the afternoon"},
-		{9, 1, "a minute past", "nine", "in the morning"},
-		{11, 59, "a minute to", "twelve", "in the morning"},
-		{12, 0, "", "noon", ""},
-		{0, 0, "", "midnight", ""},
-		{23, 50, "ten to", "twelve", "at night"},
-		{19, 20, "twenty past", "seven", "in the evening"},
-		{4, 45, "quarter to", "five", "in the morning"}, // the part of the day is the hour said
-		{17, 45, "quarter to", "six", "in the evening"},
+		{14, 7, "it's", "seven past", "two", "in the afternoon"},
+		{14, 0, "it's", "", "two o'clock", "in the afternoon"},
+		{14, 15, "it's", "quarter past", "two", "in the afternoon"},
+		{14, 30, "it's", "half past", "two", "in the afternoon"},
+		{14, 45, "it's", "quarter to", "three", "in the afternoon"},
+		{14, 37, "it's", "twenty-three to", "three", "in the afternoon"},
+		{9, 1, "it's", "a minute past", "nine", "in the morning"},
+		{11, 59, "it's", "a minute to", "twelve", "in the morning"},
+		{12, 0, "it's", "", "noon", ""},
+		{0, 0, "it's", "", "midnight", ""},
+		{23, 50, "it's", "ten to", "twelve", "at night"},
+		{19, 20, "it's", "twenty past", "seven", "in the evening"},
+		{4, 45, "it's", "quarter to", "five", "in the morning"}, // the part of the day is the hour said
+		{17, 45, "it's", "quarter to", "six", "in the evening"},
 	} {
-		lead, hour, period := clockWords(time.Date(2026, 9, 16, c.h, c.m, 0, 0, time.Local))
-		if lead != c.lead || hour != c.hour || period != c.period {
-			t.Errorf("%02d:%02d = %q %q %q, want %q %q %q", c.h, c.m, lead, hour, period, c.lead, c.hour, c.period)
+		intro, lead, hour, period := clockWords(time.Date(2026, 9, 16, c.h, c.m, 0, 0, time.Local))
+		if intro != c.intro || lead != c.lead || hour != c.hour || period != c.period {
+			t.Errorf("%02d:%02d = %q %q %q %q, want %q %q %q %q", c.h, c.m, intro, lead, hour, period, c.intro, c.lead, c.hour, c.period)
+		}
+	}
+}
+
+// The Spanish clock keeps the English layout - intro, minutes, hour in colour with its part of the
+// day beside it - but says the hour first: "son las / dos / de la tarde / y media". It is exact to
+// the minute, and says the minutes with menos only where Spanish does - menos veinte, menos cuarto,
+// menos diez, menos cinco - and with y everywhere else: "y treinta y siete", never "menos
+// veintitrés", and "y cincuenta y nueve", never "menos uno". It counts the day by the sun: with no
+// place set the madrugada ends at six and the noche begins at eight. Mediodía and medianoche are the
+// exact hours only; the twelve hours go without a part of the day.
+func TestClockWordsSpanish(t *testing.T) {
+	config.Use(filepath.Join(t.TempDir(), "state.json"))
+	t.Cleanup(func() { _ = config.Set().Screen().Language("") })
+	if err := config.Set().Screen().Language("es"); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		h, m                      int
+		intro, lead, hour, period string
+	}{
+		{14, 7, "son las", "y siete", "dos", "de la tarde"},
+		{14, 0, "son las", "", "dos en punto", "de la tarde"},
+		{14, 15, "son las", "y cuarto", "dos", "de la tarde"},
+		{14, 30, "son las", "y media", "dos", "de la tarde"},
+		{14, 37, "son las", "y treinta y siete", "dos", "de la tarde"}, // not "menos veintitrés"
+		{14, 40, "son las", "menos veinte", "tres", "de la tarde"},
+		{14, 43, "son las", "y cuarenta y tres", "dos", "de la tarde"}, // not "menos diecisiete"
+		{14, 45, "son las", "menos cuarto", "tres", "de la tarde"},
+		{14, 47, "son las", "y cuarenta y siete", "dos", "de la tarde"},
+		{14, 50, "son las", "menos diez", "tres", "de la tarde"},
+		{14, 55, "son las", "menos cinco", "tres", "de la tarde"},
+		{14, 56, "son las", "y cincuenta y seis", "dos", "de la tarde"}, // not "menos cuatro"
+		{14, 58, "son las", "y cincuenta y ocho", "dos", "de la tarde"},
+		{14, 59, "son las", "y cincuenta y nueve", "dos", "de la tarde"}, // not "menos uno"
+		{13, 1, "es la", "y uno", "una", "de la tarde"},
+		{1, 30, "es la", "y media", "una", "de la madrugada"},
+		{0, 10, "son las", "y diez", "doce", "de la madrugada"},
+		{4, 45, "son las", "menos cuarto", "cinco", "de la madrugada"},
+		{6, 0, "son las", "", "seis en punto", "de la mañana"},
+		{11, 45, "son las", "menos cuarto", "doce", "de la mañana"},
+		{12, 0, "", "", "mediodía", ""},
+		{12, 10, "son las", "y diez", "doce", ""},
+		{12, 37, "son las", "y treinta y siete", "doce", ""},
+		{12, 40, "es la", "menos veinte", "una", "de la tarde"},
+		{12, 45, "es la", "menos cuarto", "una", "de la tarde"},
+		{0, 0, "", "", "medianoche", ""},
+		{19, 20, "son las", "y veinte", "siete", "de la tarde"},
+		{20, 10, "son las", "y diez", "ocho", "de la noche"},
+		{23, 50, "son las", "menos diez", "doce", "de la noche"},
+	} {
+		intro, lead, hour, period := clockWords(time.Date(2026, 9, 16, c.h, c.m, 0, 0, time.Local))
+		if intro != c.intro || lead != c.lead || hour != c.hour || period != c.period {
+			t.Errorf("%02d:%02d = %q %q %q %q, want %q %q %q %q", c.h, c.m, intro, lead, hour, period, c.intro, c.lead, c.hour, c.period)
 		}
 	}
 }

@@ -43,6 +43,9 @@ import (
 )
 
 func init() {
+	if layout.Intercom() {
+		return // no camera to stream
+	}
 	component.Register(component.Network, Get(), component.Order(30))
 }
 

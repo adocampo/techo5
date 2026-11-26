@@ -19,7 +19,9 @@ import (
 	"github.com/HuskerMinion/techo5/echod/internal/lib/panelsock"
 )
 
-const socket = "@techo5.ctl"
+// Socket is the app's abstract socket. A variable so a test can take a name of its own: the real
+// one belongs to the machine, and test binaries run side by side.
+var Socket = "@techo5.ctl"
 
 var (
 	mu       sync.Mutex
@@ -68,7 +70,7 @@ func run() {
 		// so one held by another app is said once rather than every second.
 		refused := false
 		for {
-			c, err := panelsock.Dial(socket)
+			c, err := panelsock.Dial(Socket)
 			if err != nil {
 				if errors.Is(err, panelsock.ErrNotTheApp) && !refused {
 					slog.Error("panel control line refused", "err", err)

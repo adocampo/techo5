@@ -10,6 +10,8 @@ import (
 	"time"
 
 	esphome "github.com/ygelfand/go-esphome-device"
+
+	"github.com/HuskerMinion/techo5/echod/internal/layout"
 )
 
 // firstStart opens the adoption window on a panel's first start, so the zero key it serves with
@@ -31,7 +33,11 @@ func (a *API) firstStart(psk *esphome.PSK) *esphome.PSK {
 		slog.Error("api: opening the first window a Home Assistant could add this device in", "err", err)
 		return psk
 	}
-	slog.Warn("api: new panel, a Home Assistant may add this device now", "until", until)
+	what := "panel"
+	if layout.Intercom() {
+		what = "intercom"
+	}
+	slog.Warn("api: new "+what+", a Home Assistant may add this device now", "until", until)
 	a.shutAdoptionAt(until)
 	return psk
 }
