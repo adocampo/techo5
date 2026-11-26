@@ -26,7 +26,7 @@ import (
 // decoder inside it, a play is a line down the control line and the state is what the app tells
 // back up it. The app is the one source of truth about what it is showing: this side only mirrors.
 //
-// On the control line (panelctl), echod says "video play <url> <title>" ("" for no title),
+// On the control line (panelctl), echod says "video play <id> <url> <title>" ("" for no title),
 // "video pause", "video resume" and "video stop"; the app answers "video state <id> <phase>",
 // "video pos <id> <pos_s> <dur_s>", "video error <id> <text>" and "video ended <id>", and repeats
 // the state of whatever it is showing whenever echod reconnects. An app from before these lines
@@ -230,7 +230,7 @@ func (f *Feature) Play(req Request) (uint64, error) {
 	if title == "" {
 		title = `""`
 	}
-	panelctl.Tell("video play " + u.String() + " " + title)
+	panelctl.Tell("video play " + strconv.FormatUint(id, 10) + " " + u.String() + " " + title)
 	f.Changed.Emit(struct{}{})
 	time.AfterFunc(appAnswersIn, func() { f.stalled(id) })
 	return id, nil
