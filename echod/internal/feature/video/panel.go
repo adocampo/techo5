@@ -33,7 +33,9 @@ import (
 // answers nothing, which is what the watchdog below is for.
 
 // appAnswersIn is how long the app gets to say something about a video before the play is taken as
-// failed: an app that died, or an address Android cannot reach, would leave the state loading forever.
+// failed: an app that died would leave the state loading forever. One that is alive but slow — a
+// transcode finding its first frame — is left alone however long it takes; MediaPlayer's own error
+// is the one that ends a stream that really cannot play.
 const appAnswersIn = 15 * time.Second
 
 // pausedFor is how long a video may stay paused before it is stopped: the Show's rule (feature.go),
@@ -53,6 +55,7 @@ type Feature struct {
 	mu     sync.Mutex
 	seq    uint64
 	cur    *State // the video up, as the app last said; nil with nothing playing
+	acked  bool   // the app has said something about the video up: it is alive, however slow
 	ended  uint64
 	failed uint64
 	err    string
@@ -222,6 +225,7 @@ func (f *Feature) Play(req Request) (uint64, error) {
 	f.seq++
 	id := f.seq
 	f.cur = &State{Phase: Loading, ID: id, Title: title, Origin: req.Origin, From: req.From, Host: u.Hostname()}
+	f.acked = false
 	f.mu.Unlock()
 	// The video's sound is Android's media stream, so whatever the daemon was playing gives way to
 	// it, as it does on the Show.
@@ -236,14 +240,16 @@ func (f *Feature) Play(req Request) (uint64, error) {
 	return id, nil
 }
 
-// stalled is a play the app said nothing about: it died, or Android could not reach the address.
+// stalled is a play the app said nothing about: it died. One that answered and is still loading is
+// left to its own devices — a transcode can take a while, and MediaPlayer says so itself when a
+// stream truly cannot play.
 func (f *Feature) stalled(id uint64) {
 	f.mu.Lock()
-	if f.cur == nil || f.cur.ID != id || f.cur.Phase != Loading {
+	if f.cur == nil || f.cur.ID != id || f.acked {
 		f.mu.Unlock()
 		return
 	}
-	f.cur = nil
+	f.cur, f.acked = nil, false
 	f.failed, f.err, f.errAt = id, "video: the app did not answer", time.Now()
 	f.mu.Unlock()
 	f.lastErr.Set("video: the app did not answer")
@@ -329,6 +335,11 @@ func (f *Feature) appSays(args []string) {
 	if err != nil {
 		return
 	}
+	f.mu.Lock()
+	if f.cur != nil && f.cur.ID == id {
+		f.acked = true // any word is a word: the app is alive
+	}
+	f.mu.Unlock()
 	switch args[0] {
 	case "state":
 		if len(args) >= 3 {
